@@ -2,7 +2,14 @@
 name = "budget-tracker"
 version = "0.1.0"
 edition = "2021"
-description = "Budget tracker"
+description = "A TUI based budget tracker"
+license = "MIT"
+authors = ["Adarsh Das adarshdas950@gmail.com"]
+documentation = "https://docs.rs/budget-tracker"
+readme = "README.md"
+repository = "https://github.com/Saphereye/budget-tracker"
+keywords = ["budget", "personal-finance"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 chrono = "0.4.38"
