@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-use std::fs;
-use std::io::{self, BufRead, BufReader};
-
+use chrono::{Local, NaiveDate};
+use clap::Parser;
 use crossterm::{
     event::{self, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -10,26 +8,16 @@ use crossterm::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::{prelude::*, widgets::*};
-use clap::Parser;
+use std::collections::HashMap;
+use std::fs;
+use std::io::{self, BufRead, BufReader, Write};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Date of transaction
+    /// Add entry
     #[arg(short, long)]
-    date: Option<String>,
-
-    /// Description of transaction
-    #[arg(short, long)]
-    description: Option<String>,
-
-    /// Type of transaction
-    #[arg(short, long)]
-    expense_type: Option<String>,
-
-    /// Amount of transaction
-    #[arg(short, long)]
-    amount: Option<f64>,
+    add: bool,
 }
 
 #[derive(Debug)]
@@ -43,7 +31,10 @@ struct Expense {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    if Some(date), Some(desc)
+    if args.add {
+        add_expense()?;
+        return Ok(());
+    }
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -52,9 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     let expenses = match read_csv("expenses.csv") {
-        Ok(expenses) => {
-            expenses
-        }
+        Ok(expenses) => expenses,
         Err(err) => {
             eprintln!("Error reading CSV: {}", err);
             match create_expenses_csv() {
@@ -79,6 +68,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn add_expense() -> Result<(), Box<dyn std::error::Error>> {
+    let mut input = String::new();
+
+    let date = loop {
+        print!("Enter date (YYYY-MM-DD or YYYY/MM/DD, leave empty for today's date): ");
+        io::stdout().flush()?;
+        io::stdin().read_line(&mut input)?;
+        input = input.trim().to_string();
+
+        if input.is_empty() {
+            break Local::now().format("%Y-%m-%d").to_string();
+        } else if let Ok(date) = NaiveDate::parse_from_str(&input, "%Y-%m-%d") {
+            break date.to_string();
+        } else if let Ok(date) = NaiveDate::parse_from_str(&input, "%Y/%m/%d") {
+            break date.to_string();
+        } else {
+            println!(
+                "Invalid date format. Please enter the date in YYYY-MM-DD or YYYY/MM/DD format."
+            );
+            input.clear();
+        }
+    };
+    input.clear();
+
+    print!("Enter description:");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut input)?;
+    let description = input.trim().to_string();
+    input.clear();
+
+    print!("Enter expense type:");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut input)?;
+    let expense_type = input.trim().to_string();
+    input.clear();
+
+    print!("Enter amount:");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut input)?;
+    let amount: f64 = input.trim().parse()?;
+
+    let expense = Expense {
+        date,
+        description,
+        expense_type,
+        amount,
+    };
+
+    append_to_csv("expenses.csv", &expense)?;
+    println!("Added your data to the db!");
+
+    Ok(())
+}
+
 fn append_to_csv(file_name: &str, expense: &Expense) -> Result<(), Box<dyn std::error::Error>> {
     let home_dir = match dirs::home_dir() {
         Some(path) => path,
@@ -88,14 +131,17 @@ fn append_to_csv(file_name: &str, expense: &Expense) -> Result<(), Box<dyn std::
         }
     };
 
-    let file_path = home_dir.join(".local").join("share").join("budget-tracker").join(file_name);
+    let file_path = home_dir
+        .join(".local")
+        .join("share")
+        .join("budget-tracker")
+        .join(file_name);
     let mut file = fs::OpenOptions::new().append(true).open(file_path)?;
-
-    writeln!(
-        file,
-        "{},{},{},{}",
+    let data = format!(
+        "{},{},{},{}\n",
         expense.date, expense.description, expense.expense_type, expense.amount
-    )?;
+    );
+    file.write_all(data.as_bytes())?;
 
     Ok(())
 }
@@ -109,7 +155,11 @@ fn read_csv(file_name: &str) -> Result<Vec<Expense>, Box<dyn std::error::Error>>
         }
     };
 
-    let file_path = home_dir.join(".local").join("share").join("budget-tracker").join(file_name);
+    let file_path = home_dir
+        .join(".local")
+        .join("share")
+        .join("budget-tracker")
+        .join(file_name);
     let file = fs::File::open(file_path)?;
 
     let reader = BufReader::new(file);
