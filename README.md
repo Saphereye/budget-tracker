@@ -9,7 +9,7 @@ A minimal TUI based budget tracker
 budget-tracker
 ```
 
-- To add a new entry (add `-` infront om amount if you received money)
+- To add a new entry (add `-` infront of amount if you received money)
 ```bash
 budget-tracker -a
 ```
