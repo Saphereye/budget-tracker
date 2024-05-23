@@ -10,6 +10,27 @@ use crossterm::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::{prelude::*, widgets::*};
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Date of transaction
+    #[arg(short, long)]
+    date: Option<String>,
+
+    /// Description of transaction
+    #[arg(short, long)]
+    description: Option<String>,
+
+    /// Type of transaction
+    #[arg(short, long)]
+    expense_type: Option<String>,
+
+    /// Amount of transaction
+    #[arg(short, long)]
+    amount: Option<f64>,
+}
 
 #[derive(Debug)]
 struct Expense {
@@ -20,6 +41,10 @@ struct Expense {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
+    if Some(date), Some(desc)
+
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     stdout.execute(EnterAlternateScreen)?;
@@ -51,6 +76,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     disable_raw_mode()?;
     let mut stdout = io::stdout();
     stdout.execute(LeaveAlternateScreen)?;
+    Ok(())
+}
+
+fn append_to_csv(file_name: &str, expense: &Expense) -> Result<(), Box<dyn std::error::Error>> {
+    let home_dir = match dirs::home_dir() {
+        Some(path) => path,
+        None => {
+            eprintln!("Unable to determine user's home directory");
+            return Err("Unable to determine user's home directory".into());
+        }
+    };
+
+    let file_path = home_dir.join(".local").join("share").join("budget-tracker").join(file_name);
+    let mut file = fs::OpenOptions::new().append(true).open(file_path)?;
+
+    writeln!(
+        file,
+        "{},{},{},{}",
+        expense.date, expense.description, expense.expense_type, expense.amount
+    )?;
+
     Ok(())
 }
 
