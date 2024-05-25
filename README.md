@@ -36,10 +36,24 @@ export PATH="$HOME/.cargo/bin:$PATH"
 budget-tracker
 ```
 
-- To add a new entry (add `-` infront of amount if you received money) run:
+- To add a new entry (add `-` infront of amount if you received money) run any one of:
 ```bash
+budget-tracker --add
 budget-tracker -a
 ```
+
+- To manually edit the database run any one of:
+```bash
+budget-tracker --edit
+budget-tracker -e
+```
+
+By default it opens using `nano`. To specify an editor set the `EDITOR` environment variable.
+```bash
+EDITOR=vim budget-tracker --edit
+```
+
+This will open the file in vim.
 
 ## Screenshot
 ![](https://github.com/Saphereye/budget-tracker/blob/main/assets/image.png)

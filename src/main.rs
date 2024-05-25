@@ -8,7 +8,7 @@ use crossterm::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::{prelude::*, widgets::*};
-use std::collections::HashMap;
+use std::{collections::HashMap, env, process::Command};
 use std::fs;
 use std::io::{self, BufRead, BufReader, Write};
 
@@ -18,8 +18,13 @@ struct Args {
     /// Add entry
     #[arg(short, long)]
     add: bool,
+
+    /// Edit entries
+    #[arg(short, long)]
+    edit: bool,
 }
 
+/// The `Expense` struct; helps reading/writing data in a structured manner. It reflects the schema of the database.
 #[derive(Debug)]
 struct Expense {
     date: String,
@@ -33,7 +38,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.add {
         add_expense()?;
-        return Ok(());
+    }
+
+    if args.edit {
+        edit_expenses()?;
     }
 
     enable_raw_mode()?;
@@ -68,6 +76,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/**
+Function to add and expense to the database.
+
+Takes input from `stdin` for date, description, expense type and amount.
+Support YYYY-MM-DD and YYYY/MM/DD date format as input.
+For amount no denoination is expected as of now.
+*/
 fn add_expense() -> Result<(), Box<dyn std::error::Error>> {
     let mut input = String::new();
 
@@ -122,6 +137,20 @@ fn add_expense() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Allows editing the database by specifying an EDITOR environment variable. By default its nano.
+fn edit_expenses() -> Result<(), Box<dyn std::error::Error>> {
+    let editor = env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
+    let home_dir = dirs::home_dir().ok_or("Unable to determine user's home directory")?;
+    let file_path = home_dir.join(".local").join("share").join("budget-tracker").join("expenses.csv");
+
+    Command::new(editor)
+        .arg(file_path)
+        .status()?;
+    
+    Ok(())
+}
+
+/// Allows adding data to the end of the database
 fn append_to_csv(file_name: &str, expense: &Expense) -> Result<(), Box<dyn std::error::Error>> {
     let home_dir = match dirs::home_dir() {
         Some(path) => path,
@@ -146,6 +175,8 @@ fn append_to_csv(file_name: &str, expense: &Expense) -> Result<(), Box<dyn std::
     Ok(())
 }
 
+/// Read the database if its present from ~/.local/share/budget-tracker/expenses.csv;
+/// if not present it returns an error.
 fn read_csv(file_name: &str) -> Result<Vec<Expense>, Box<dyn std::error::Error>> {
     let home_dir = match dirs::home_dir() {
         Some(path) => path,
@@ -184,6 +215,7 @@ fn read_csv(file_name: &str) -> Result<Vec<Expense>, Box<dyn std::error::Error>>
     Ok(expenses)
 }
 
+/// Creates the database. Usually called when running the program for the first time.
 fn create_expenses_csv() -> Result<(), Box<dyn std::error::Error>> {
     let home_dir = match dirs::home_dir() {
         Some(path) => path,
