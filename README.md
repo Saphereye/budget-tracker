@@ -15,4 +15,4 @@ budget-tracker -a
 ```
 
 ## Screenshot
-![](./assets/image.png)
+![](https://github.com/Saphereye/budget-tracker/blob/main/assets/image.png)
