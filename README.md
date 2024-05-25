@@ -4,19 +4,14 @@
 A minimal TUI based budget tracker.
 
 Users can track date, a brief description, the type of purchase and the total amount spent/received.
-For example, the following are the types of purchases the users can follow, although users are allowed to put any type they want.
+For example, the following expense types are supported by default, but users can create their own types too while adding a transaction.
 - Food
-- Gifts
-- Health/medical
-- Home
-- Transportation
-- Personal
-- Pets
-- Utilities
 - Travel
-- Debt
+- Fun
+- Medical
+- Personal
 
-The data is stored at `~/.local/share/budget-tracker/expenses.csv`.
+The data by default is stored at `~/.local/share/budget-tracker/expenses.csv`.
 
 ## Usage
 - To install the program, make sure to have cargo [installed](https://doc.rust-lang.org/cargo/getting-started/installation.html), then run the following command.
