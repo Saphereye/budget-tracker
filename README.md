@@ -1,4 +1,4 @@
-# Budget Tracker
+# Budget Tracker ![crates.io](https://img.shields.io/crates/v/budget-tracker.svg)
 
 ## Description
 A minimal TUI based budget tracker
