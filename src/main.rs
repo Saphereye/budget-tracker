@@ -1,4 +1,3 @@
-use chrono::{Local, NaiveDate};
 use clap::Parser;
 use crossterm::{
     event::{self, Event, KeyCode},
@@ -8,9 +7,11 @@ use crossterm::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::{prelude::*, widgets::*};
-use std::fs;
-use std::io::{self, BufRead, BufReader, Write};
-use std::{collections::HashMap, env, process::Command};
+use std::collections::HashMap;
+use std::io;
+
+mod expense;
+use expense::*;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -24,24 +25,15 @@ struct Args {
     edit: bool,
 }
 
-/// The `Expense` struct; helps reading/writing data in a structured manner. It reflects the schema of the database.
-#[derive(Debug)]
-struct Expense {
-    date: String,
-    description: String,
-    expense_type: String,
-    amount: f64,
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     if args.add {
-        add_expense()?;
+        Expense::add_expense()?;
     }
 
     if args.edit {
-        edit_expenses()?;
+        Expense::edit_expenses("expenses.csv")?;
     }
 
     enable_raw_mode()?;
@@ -50,11 +42,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let expenses = match read_csv("expenses.csv") {
+    let expenses = match Expense::read_csv("expenses.csv") {
         Ok(expenses) => expenses,
         Err(err) => {
             eprintln!("Error reading CSV: {}", err);
-            match create_expenses_csv() {
+            match Expense::create_expenses_csv() {
                 Ok(_) => Vec::new(),
                 Err(err) => {
                     eprintln!("Error creating CSV: {}", err);
@@ -77,176 +69,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/**
-Function to add and expense to the database.
-
-Takes input from `stdin` for date, description, expense type and amount.
-Support YYYY-MM-DD and YYYY/MM/DD date format as input.
-For amount no denoination is expected as of now.
-*/
-fn add_expense() -> Result<(), Box<dyn std::error::Error>> {
-    let mut input = String::new();
-
-    let date = loop {
-        print!("Enter date (YYYY-MM-DD or YYYY/MM/DD, leave empty for today's date): ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut input)?;
-        input = input.trim().to_string();
-
-        if input.is_empty() {
-            break Local::now().format("%Y-%m-%d").to_string();
-        } else if let Ok(date) = NaiveDate::parse_from_str(&input, "%Y-%m-%d") {
-            break date.to_string();
-        } else if let Ok(date) = NaiveDate::parse_from_str(&input, "%Y/%m/%d") {
-            break date.to_string();
-        } else {
-            println!(
-                "Invalid date format. Please enter the date in YYYY-MM-DD or YYYY/MM/DD format."
-            );
-            input.clear();
-        }
-    };
-    input.clear();
-
-    print!("Enter description:");
-    io::stdout().flush()?;
-    io::stdin().read_line(&mut input)?;
-    let description = input.trim().to_string();
-    input.clear();
-
-    print!("Enter expense type:");
-    io::stdout().flush()?;
-    io::stdin().read_line(&mut input)?;
-    let expense_type = input.trim().to_string();
-    input.clear();
-
-    print!("Enter amount:");
-    io::stdout().flush()?;
-    io::stdin().read_line(&mut input)?;
-    let amount: f64 = input.trim().parse()?;
-
-    let expense = Expense {
-        date,
-        description,
-        expense_type,
-        amount,
-    };
-
-    append_to_csv("expenses.csv", &expense)?;
-    println!("Added your data to the db!");
-
-    Ok(())
-}
-
-/// Allows editing the database by specifying an EDITOR environment variable. By default its nano.
-fn edit_expenses() -> Result<(), Box<dyn std::error::Error>> {
-    let editor = env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
-    let home_dir = dirs::home_dir().ok_or("Unable to determine user's home directory")?;
-    let file_path = home_dir
-        .join(".local")
-        .join("share")
-        .join("budget-tracker")
-        .join("expenses.csv");
-
-    Command::new(editor).arg(file_path).status()?;
-
-    Ok(())
-}
-
-/// Allows adding data to the end of the database
-fn append_to_csv(file_name: &str, expense: &Expense) -> Result<(), Box<dyn std::error::Error>> {
-    let home_dir = match dirs::home_dir() {
-        Some(path) => path,
-        None => {
-            eprintln!("Unable to determine user's home directory");
-            return Err("Unable to determine user's home directory".into());
-        }
-    };
-
-    let file_path = home_dir
-        .join(".local")
-        .join("share")
-        .join("budget-tracker")
-        .join(file_name);
-    let mut file = fs::OpenOptions::new().append(true).open(file_path)?;
-    let data = format!(
-        "{},{},{},{}\n",
-        expense.date, expense.description, expense.expense_type, expense.amount
-    );
-    file.write_all(data.as_bytes())?;
-
-    Ok(())
-}
-
-/// Read the database if its present from ~/.local/share/budget-tracker/expenses.csv;
-/// if not present it returns an error.
-fn read_csv(file_name: &str) -> Result<Vec<Expense>, Box<dyn std::error::Error>> {
-    let home_dir = match dirs::home_dir() {
-        Some(path) => path,
-        None => {
-            eprintln!("Unable to determine user's home directory");
-            return Err("Unable to determine user's home directory".into());
-        }
-    };
-
-    let file_path = home_dir
-        .join(".local")
-        .join("share")
-        .join("budget-tracker")
-        .join(file_name);
-    let file = fs::File::open(file_path)?;
-
-    let reader = BufReader::new(file);
-    let mut expenses = Vec::new();
-
-    for (index, line) in reader.lines().enumerate() {
-        let line = line?;
-        if index == 0 {
-            continue; // Skip header
-        }
-        let fields: Vec<&str> = line.split(',').collect();
-        if fields.len() == 4 {
-            let expense = Expense {
-                date: fields[0].to_string(),
-                description: fields[1].to_string(),
-                expense_type: fields[2].to_string(),
-                amount: fields[3].parse::<f64>()?,
-            };
-            expenses.push(expense);
-        }
-    }
-    Ok(expenses)
-}
-
-/// Creates the database. Usually called when running the program for the first time.
-fn create_expenses_csv() -> Result<(), Box<dyn std::error::Error>> {
-    let home_dir = match dirs::home_dir() {
-        Some(path) => path,
-        None => {
-            eprintln!("Unable to determine user's home directory");
-            return Err("Unable to determine user's home directory".into());
-        }
-    };
-
-    let budget_tracker_dir = home_dir.join(".local").join("share").join("budget-tracker");
-    if let Err(err) = fs::create_dir_all(&budget_tracker_dir) {
-        eprintln!(
-            "Error creating directory {}: {}",
-            budget_tracker_dir.display(),
-            err
-        );
-        return Err(err.into());
-    }
-
-    let expenses_file = budget_tracker_dir.join("expenses.csv");
-    if let Err(err) = fs::File::create(&expenses_file) {
-        eprintln!("Error creating file {}: {}", expenses_file.display(), err);
-        return Err(err.into());
-    }
-
-    Ok(())
-}
-
 fn handle_events() -> io::Result<bool> {
     if event::poll(std::time::Duration::from_millis(50))? {
         if let Event::Key(key) = event::read()? {
@@ -258,7 +80,7 @@ fn handle_events() -> io::Result<bool> {
     Ok(false)
 }
 
-fn ui(frame: &mut Frame, expenses: &[Expense], table_state: &mut TableState) {
+fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .margin(2)
@@ -294,7 +116,7 @@ fn ui(frame: &mut Frame, expenses: &[Expense], table_state: &mut TableState) {
             Row::new(vec![
                 expense.date.clone(),
                 expense.description.clone(),
-                expense.expense_type.clone(),
+                expense.expense_type.to_string(),
                 expense.amount.to_string(),
             ])
         })
@@ -358,7 +180,7 @@ fn ui(frame: &mut Frame, expenses: &[Expense], table_state: &mut TableState) {
     let mut aggregated_expenses: HashMap<String, f64> = HashMap::new();
     for expense in expenses {
         let entry = aggregated_expenses
-            .entry(expense.expense_type.clone())
+            .entry(expense.expense_type.to_string())
             .or_insert(0.0);
         *entry += expense.amount;
     }
