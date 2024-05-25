@@ -8,9 +8,9 @@ use crossterm::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::{prelude::*, widgets::*};
-use std::{collections::HashMap, env, process::Command};
 use std::fs;
 use std::io::{self, BufRead, BufReader, Write};
+use std::{collections::HashMap, env, process::Command};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -65,8 +65,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut should_quit = false;
+    let mut table_state = TableState::default().with_selected(Some(0));
     while !should_quit {
-        terminal.draw(|f| ui(f, &expenses))?;
+        terminal.draw(|f| ui(f, &expenses, &mut table_state))?;
         should_quit = handle_events()?;
     }
 
@@ -141,12 +142,14 @@ fn add_expense() -> Result<(), Box<dyn std::error::Error>> {
 fn edit_expenses() -> Result<(), Box<dyn std::error::Error>> {
     let editor = env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
     let home_dir = dirs::home_dir().ok_or("Unable to determine user's home directory")?;
-    let file_path = home_dir.join(".local").join("share").join("budget-tracker").join("expenses.csv");
+    let file_path = home_dir
+        .join(".local")
+        .join("share")
+        .join("budget-tracker")
+        .join("expenses.csv");
 
-    Command::new(editor)
-        .arg(file_path)
-        .status()?;
-    
+    Command::new(editor).arg(file_path).status()?;
+
     Ok(())
 }
 
@@ -255,11 +258,11 @@ fn handle_events() -> io::Result<bool> {
     Ok(false)
 }
 
-fn ui(frame: &mut Frame, expenses: &[Expense]) {
+fn ui(frame: &mut Frame, expenses: &[Expense], table_state: &mut TableState) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .margin(2)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)].as_ref())
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)].as_ref())
         .split(frame.size());
 
     // Split the second chunk (chunks[1]) vertically into two equal parts
@@ -271,8 +274,21 @@ fn ui(frame: &mut Frame, expenses: &[Expense]) {
     let positive_chunk = charts_chunks[0];
     let negative_chunk = charts_chunks[1];
 
+    // Calculate the total sum of amounts
+    let total_amount: f64 = expenses.iter().map(|expense| expense.amount).sum();
+    let total_spent: f64 = expenses
+        .iter()
+        .filter(|expense| expense.amount < 0.0)
+        .map(|expense| expense.amount)
+        .sum();
+    let total_earned: f64 = expenses
+        .iter()
+        .filter(|expense| expense.amount >= 0.0)
+        .map(|expense| expense.amount)
+        .sum();
+
     // Expense Table
-    let rows = expenses
+    let mut rows = expenses
         .iter()
         .map(|expense| {
             Row::new(vec![
@@ -284,27 +300,59 @@ fn ui(frame: &mut Frame, expenses: &[Expense]) {
         })
         .collect::<Vec<Row>>();
 
+    // Add the total amount row
+    rows.push(
+        Row::new(vec![
+            "".to_string(),
+            "".to_string(),
+            "Net Total Spent".to_string(),
+            total_amount.to_string(),
+        ])
+        .style(Style::default().bold())
+        .top_margin(1),
+    );
+
+    // Add the total debt row
+    rows.push(
+        Row::new(vec![
+            "".to_string(),
+            "".to_string(),
+            "Total Spent".to_string(),
+            total_spent.to_string(),
+        ])
+        .style(Style::default().bold()),
+    );
+
+    // Add the total income row
+    rows.push(
+        Row::new(vec![
+            "".to_string(),
+            "".to_string(),
+            "Total Earned".to_string(),
+            total_earned.to_string(),
+        ])
+        .style(Style::default().bold()),
+    );
+
     let widths = [
         Constraint::Length(15),
-        Constraint::Length(60),
+        Constraint::Length(55),
+        Constraint::Length(30),
         Constraint::Length(10),
-        Constraint::Length(15),
     ];
 
     let expense_table = Table::new(rows, widths)
-        .block(Block::default().title("All Expenses").borders(Borders::ALL))
-        .column_spacing(1)
-        .style(Style::default().blue())
+        .block(Block::default().title("Transactions").borders(Borders::ALL))
+        // .column_spacing(1)
+        // .style(Style::default())
         .header(
-            Row::new(vec!["Date", "Description", "Expense Type", "Amount"])
-                .style(Style::default().bold())
-                .bottom_margin(1),
+            Row::new(vec!["Date", "Description", "Type", "Amount"]).style(Style::default().bold()),
         )
-        .block(Block::default().title("Expenses Table"))
-        .highlight_style(Style::new().reversed())
+        .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
         .highlight_symbol(">>");
 
-    frame.render_widget(expense_table, chunks[0]); // Render the expense table on the left
+    frame.render_widget(expense_table, chunks[0]);
+    // frame.render_stateful_widget(expense_table, chunks[0], table_state); // TODO: use this for TUI editing
 
     // Aggregate expenses by date
     let mut aggregated_expenses: HashMap<String, f64> = HashMap::new();
@@ -316,13 +364,13 @@ fn ui(frame: &mut Frame, expenses: &[Expense]) {
     }
 
     // Separate positive and negative expenses
-    let positive_expenses_data: Vec<(String, f64)> = aggregated_expenses
+    let total_earned_data: Vec<(String, f64)> = aggregated_expenses
         .clone()
         .into_iter()
         .filter(|(_, amount)| *amount >= 0.0)
         .collect();
 
-    let negative_expenses_data: Vec<(String, f64)> = aggregated_expenses
+    let total_spent_data: Vec<(String, f64)> = aggregated_expenses
         .clone()
         .into_iter()
         .filter(|(_, amount)| *amount < 0.0)
@@ -331,15 +379,15 @@ fn ui(frame: &mut Frame, expenses: &[Expense]) {
 
     for (mut expense_data, chunk, title, color) in [
         (
-            positive_expenses_data.clone(),
+            total_spent_data.clone(),
             positive_chunk,
-            "Expenses",
+            "Expenditure",
             Style::default().cyan(),
         ),
         (
-            negative_expenses_data,
+            total_earned_data,
             negative_chunk,
-            "Profits",
+            "Income",
             Style::default().red(),
         ),
     ] {
@@ -368,9 +416,9 @@ fn ui(frame: &mut Frame, expenses: &[Expense]) {
 
         let type_barchart = BarChart::default()
             .block(Block::default().title(title).borders(Borders::ALL))
-            .bar_width(10)
-            .bar_gap(1)
-            .group_gap(3)
+            .bar_width(15)
+            // .bar_gap(1)
+            // .group_gap(3)
             .bar_style(color)
             .value_style(Style::default().white().bold())
             .label_style(Style::default().white())

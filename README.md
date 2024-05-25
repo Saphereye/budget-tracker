@@ -36,7 +36,7 @@ export PATH="$HOME/.cargo/bin:$PATH"
 budget-tracker
 ```
 
-- To add a new entry (add `-` infront of amount if you received money) run any one of:
+- To add a new entry (add `-` infront of amount to show expenses) run any one of:
 ```bash
 budget-tracker --add
 budget-tracker -a

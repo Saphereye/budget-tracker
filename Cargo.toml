@@ -1,6 +1,6 @@
 [package]
 name = "budget-tracker"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "A TUI based budget tracker for the minimalist"
 license = "MIT"
