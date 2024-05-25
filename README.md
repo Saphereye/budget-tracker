@@ -4,12 +4,24 @@
 A minimal TUI based budget tracker
 
 ## Usage
-- To see graphical data
+- To install the program, make sure to have cargo [installed](https://doc.rust-lang.org/cargo/getting-started/installation.html), then run the following command.
+
+```bash
+cargo install budget-tracker
+```
+
+If the PATH is not set directly add the following to your shell profile.
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+- To see graphical data run:
 ```bash
 budget-tracker
 ```
 
-- To add a new entry (add `-` infront of amount if you received money)
+- To add a new entry (add `-` infront of amount if you received money) run:
 ```bash
 budget-tracker -a
 ```
