@@ -1,8 +1,8 @@
 [package]
 name = "budget-tracker"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
-description = "A TUI based budget tracker"
+description = "A TUI based budget tracker for the minimalist"
 license = "MIT"
 authors = ["Adarsh Das adarshdas950@gmail.com"]
 documentation = "https://docs.rs/budget-tracker"
