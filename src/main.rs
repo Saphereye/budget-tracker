@@ -4,6 +4,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::{prelude::*, widgets::*};
@@ -23,6 +24,10 @@ struct Args {
     /// Edit entries
     #[arg(short, long)]
     edit: bool,
+
+    /// Search entries
+    #[arg(short, long)]
+    search: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let expenses = match Expense::read_csv("expenses.csv") {
+    let mut expenses = match Expense::read_csv("expenses.csv") {
         Ok(expenses) => expenses,
         Err(err) => {
             eprintln!("Error reading CSV: {}", err);
@@ -55,6 +60,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     };
+
+    if let Some(query) = &args.search {
+        let matcher = SkimMatcherV2::default();
+        expenses = expenses
+            .iter()
+            .filter(|expense| {
+                matcher.fuzzy_match(&expense.description, query).is_some()
+                    || matcher
+                        .fuzzy_match(&expense.expense_type.to_string(), query)
+                        .is_some()
+            })
+            .cloned()
+            .collect();
+    }
 
     let mut should_quit = false;
     let mut table_state = TableState::default().with_selected(Some(0));

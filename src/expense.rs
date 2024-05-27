@@ -8,7 +8,7 @@ use std::{fs, path::PathBuf};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum ExpenseType {
     Food,
     Travel,
@@ -47,7 +47,7 @@ impl std::str::FromStr for ExpenseType {
 }
 
 /// The `Expense` struct; helps reading/writing data in a structured manner. It reflects the schema of the database.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expense {
     pub date: String,
     pub description: String,

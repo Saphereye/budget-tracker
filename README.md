@@ -50,5 +50,15 @@ EDITOR=vim budget-tracker --edit
 
 This will open the file in vim.
 
+- To search for a keyword or a particular expense type you can run as follows
+```
+budget-tracker -s <SEARCH_QUERY>
+budget-tracker --search <SEARCH_QUERY>
+```
+
+Here the search query can either be a substring of the description (the search support fuzzy searching) or the expense type, the program automatically accounts for both.
+
+- To exit press 'q'
+
 ## Screenshot
 ![](https://github.com/Saphereye/budget-tracker/blob/main/assets/image.png)
