@@ -61,4 +61,4 @@ Here the search query can either be a substring of the description (the search s
 - To exit press 'q'
 
 ## Screenshot
-![](https://github.com/Saphereye/budget-tracker/blob/main/assets/image.png)
+![](https://github.com/Saphereye/budget-tracker/blob/93930515b72efeba64a2682f26513c77bd919e9a/assets/image.png)
