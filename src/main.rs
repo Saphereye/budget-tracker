@@ -135,7 +135,7 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
             Row::new(vec![
                 expense.date.clone(),
                 expense.description.clone(),
-                expense.expense_type.to_string(),
+                capitalize(expense.expense_type.to_string()),
                 expense.amount.to_string(),
             ])
         })
@@ -215,7 +215,7 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
         .clone()
         .into_iter()
         .filter(|(_, amount)| *amount < 0.0)
-        .map(|(date, amount)| (date, -amount))
+        .map(|(expense_type, amount)| (capitalize(expense_type), -amount))
         .collect();
 
     for (mut expense_data, chunk, title, color) in [
@@ -232,16 +232,7 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
             Style::default().red(),
         ),
     ] {
-        // Convert expenses to chart data
-        // Sort the expense data by date
         expense_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-
-        let mut labels = expense_data
-            .iter()
-            .map(|(date, _)| Span::raw(date.clone()))
-            .collect::<Vec<Span>>();
-        labels.insert(0, "".into());
-        labels.push("".into());
 
         // Find the maximum expense amount
         let max_expense_amount = expense_data
@@ -255,17 +246,40 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
             .map(|(date, amount)| (date.as_str(), *amount as u64))
             .collect();
 
+        // Calculate dynamic bar width
+        let available_width = chunk.width as usize;
+        let num_types = expense_data.len() + 5;
+        let min_bar_width = 1;
+
+        let bar_width = if num_types > 0 {
+            (available_width / num_types).max(min_bar_width) as u16
+        } else {
+            min_bar_width as u16
+        };
+
         let type_barchart = BarChart::default()
             .block(Block::default().title(title).borders(Borders::ALL))
-            .bar_width(15)
+            .bar_width(bar_width)
             // .bar_gap(1)
             // .group_gap(3)
             .bar_style(color)
             .value_style(Style::default().white().bold())
             .label_style(Style::default().white())
             .data(&type_data)
-            .max(max_expense_amount.ceil() as u64); // Set the maximum value to the next integer greater than the maximum expense amount
+            .max(max_expense_amount.ceil() as u64);
 
         frame.render_widget(type_barchart, chunk); // Render the type barchart
     }
+}
+
+fn capitalize(string: String) -> String {
+    if string.is_empty() {
+        return String::new();
+    }
+
+    let mut chars = string.chars();
+    let first_char = chars.next().unwrap().to_uppercase().to_string();
+    let rest: String = chars.collect();
+
+    first_char + &rest
 }
