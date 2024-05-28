@@ -1,4 +1,5 @@
-///
+/// Defines all [Expense] struct related objects.
+
 use chrono::{Local, NaiveDate};
 use std::io::{self, BufRead, BufReader, Write};
 use std::{env, process::Command};

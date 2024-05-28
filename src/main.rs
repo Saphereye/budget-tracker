@@ -1,6 +1,6 @@
 use clap::Parser;
 use crossterm::{
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
@@ -75,11 +75,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
     }
 
+    // Sort expenses by date in descending order
+    expenses.sort_by(|a, b| b.date.cmp(&a.date));
+
     let mut should_quit = false;
     let mut table_state = TableState::default().with_selected(Some(0));
+    let table_size = expenses.len();
     while !should_quit {
         terminal.draw(|f| ui(f, &expenses, &mut table_state))?;
-        should_quit = handle_events()?;
+        should_quit = handle_events(&mut table_state, table_size)?;
     }
 
     disable_raw_mode()?;
@@ -88,18 +92,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn handle_events() -> io::Result<bool> {
+fn handle_events(table_state: &mut TableState, table_size: usize) -> io::Result<bool> {
     if event::poll(std::time::Duration::from_millis(50))? {
-        if let Event::Key(key) = event::read()? {
-            if key.kind == event::KeyEventKind::Press && key.code == KeyCode::Char('q') {
-                return Ok(true);
+        if let Event::Key(KeyEvent {
+            kind: KeyEventKind::Press,
+            code,
+            ..
+        }) = event::read()?
+        {
+            match code {
+                KeyCode::Char('q') => return Ok(true),
+                KeyCode::Down | KeyCode::Char('s') => {
+                    if let Some(selected) = table_state.selected() {
+                        let next_index = if selected >= table_size - 1 {
+                            0
+                        } else {
+                            selected + 1
+                        };
+                        table_state.select(Some(next_index));
+                    }
+                }
+                KeyCode::Up | KeyCode::Char('w') => {
+                    if let Some(selected) = table_state.selected() {
+                        let next_index = if selected == 0 {
+                            table_size - 1
+                        } else {
+                            selected - 1
+                        };
+                        table_state.select(Some(next_index));
+                    }
+                }
+                _ => {}
             }
         }
     }
     Ok(false)
 }
 
-fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
+fn ui(frame: &mut Frame, expenses: &[Expense], table_state: &mut TableState) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .margin(2)
@@ -129,7 +159,7 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
         .sum();
 
     // Expense Table
-    let mut rows = expenses
+    let rows = expenses
         .iter()
         .map(|expense| {
             Row::new(vec![
@@ -141,8 +171,30 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
         })
         .collect::<Vec<Row>>();
 
-    // Add the total amount row
-    rows.push(
+    let widths = [
+        Constraint::Length(15),
+        Constraint::Length(65),
+        Constraint::Length(20),
+        Constraint::Length(10),
+    ];
+
+    let expense_table = Table::new(rows, widths)
+        .block(Block::default().borders(Borders::ALL))
+        .header(
+            Row::new(vec!["Date", "Description", "Type", "Amount"]).style(Style::default().bold()),
+        )
+        .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
+        .highlight_symbol(">>");
+
+    let table_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)].as_ref())
+        .split(chunks[0]);
+
+    // frame.render_widget(expense_table, chunks[0]);
+    frame.render_stateful_widget(expense_table, table_chunks[0], table_state);
+
+    let rows = vec![
         Row::new(vec![
             "".to_string(),
             "".to_string(),
@@ -151,10 +203,6 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
         ])
         .style(Style::default().bold())
         .top_margin(1),
-    );
-
-    // Add the total debt row
-    rows.push(
         Row::new(vec![
             "".to_string(),
             "".to_string(),
@@ -162,10 +210,6 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
             total_spent.to_string(),
         ])
         .style(Style::default().bold()),
-    );
-
-    // Add the total income row
-    rows.push(
         Row::new(vec![
             "".to_string(),
             "".to_string(),
@@ -173,27 +217,11 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
             total_earned.to_string(),
         ])
         .style(Style::default().bold()),
-    );
-
-    let widths = [
-        Constraint::Length(15),
-        Constraint::Length(55),
-        Constraint::Length(30),
-        Constraint::Length(10),
     ];
 
-    let expense_table = Table::new(rows, widths)
-        .block(Block::default().title("Transactions").borders(Borders::ALL))
-        // .column_spacing(1)
-        // .style(Style::default())
-        .header(
-            Row::new(vec!["Date", "Description", "Type", "Amount"]).style(Style::default().bold()),
-        )
-        .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
-        .highlight_symbol(">>");
+    let data_table = Table::new(rows, widths);
 
-    frame.render_widget(expense_table, chunks[0]);
-    // frame.render_stateful_widget(expense_table, chunks[0], table_state); // TODO: use this for TUI editing
+    frame.render_widget(data_table, table_chunks[1]);
 
     // Aggregate expenses by date
     let mut aggregated_expenses: HashMap<String, f64> = HashMap::new();
@@ -273,6 +301,7 @@ fn ui(frame: &mut Frame, expenses: &[Expense], _table_state: &mut TableState) {
 }
 
 fn capitalize(string: String) -> String {
+    // QUESTION: will this work fine for unicode also?
     if string.is_empty() {
         return String::new();
     }
