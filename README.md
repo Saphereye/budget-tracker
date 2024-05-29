@@ -3,8 +3,7 @@
 ## Description
 A minimal TUI based budget tracker.
 
-Users can track date, a brief description, the type of purchase and the total amount spent/received.
-For example, the following expense types are supported by default, but users can create their own types too while adding a transaction.
+Track your expenses and income by recording the date, a brief description, the type of transaction, and the amount spent or received. You can create custom expense types when adding transactions. For example, you might use:
 - Food
 - Travel
 - Fun
