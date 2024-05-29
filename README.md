@@ -14,24 +14,24 @@ For example, the following expense types are supported by default, but users can
 The data by default is stored at `~/.local/share/budget-tracker/expenses.csv`.
 
 ## Usage
-- To install the program, make sure to have cargo [installed](https://doc.rust-lang.org/cargo/getting-started/installation.html), then run the following command.
+- To install the program, make sure to have [cargo installed](https://doc.rust-lang.org/cargo/getting-started/installation.html), then run the following command.
 
 ```bash
 cargo install budget-tracker
 ```
 
-If the PATH is not set directly add the following to your shell profile.
+If the `PATH` is not set directly add the following to your shell profile.
 
 ```bash
 export PATH="$HOME/.cargo/bin:$PATH"
 ```
 
-- To see graphical data run:
+- To see graphical representation of your budget, run:
 ```bash
 budget-tracker
 ```
 
-- To add a new entry (add `-` infront of amount to show expenses) run any one of:
+- To add a new entry (add `-` infront of amount to show expenses) run any one of the following:
 ```bash
 budget-tracker --add
 budget-tracker -a
@@ -61,4 +61,4 @@ Here the search query can either be a substring of the description (the search s
 - To exit press 'q'
 
 ## Screenshot
-![](https://github.com/Saphereye/budget-tracker/blob/93930515b72efeba64a2682f26513c77bd919e9a/assets/image.png)
+![](https://raw.githubusercontent.com/Saphereye/budget-tracker/main/assets/image.png)
