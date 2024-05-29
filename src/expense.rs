@@ -1,67 +1,37 @@
-/// Defines all [Expense] struct related objects.
+//! Defines all [Expense] struct related objects.
 
 use chrono::{Local, NaiveDate};
 use std::io::{self, BufRead, BufReader, Write};
 use std::{env, process::Command};
 use std::{fs, path::PathBuf};
 
-// expense.rs
-use serde::{Deserialize, Serialize};
-use std::fmt;
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub enum ExpenseType {
-    Food,
-    Travel,
-    Fun,
-    Medical,
-    Personal,
-    Other(String), // To handle custom expense types
-}
-
-impl fmt::Display for ExpenseType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ExpenseType::Food => write!(f, "Food"),
-            ExpenseType::Travel => write!(f, "Travel"),
-            ExpenseType::Fun => write!(f, "Fun"),
-            ExpenseType::Medical => write!(f, "Medical"),
-            ExpenseType::Personal => write!(f, "Personal"),
-            ExpenseType::Other(custom) => write!(f, "{}", custom),
-        }
+pub fn capitalize(string: String) -> String {
+    if string.is_empty() {
+        return String::new();
     }
+
+    let mut chars = string.chars();
+    let first_char = chars.next().unwrap().to_uppercase().to_string();
+    let rest: String = chars.collect();
+
+    first_char + &rest
 }
 
-impl std::str::FromStr for ExpenseType {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "food" => Ok(ExpenseType::Food),
-            "travel" => Ok(ExpenseType::Travel),
-            "fun" => Ok(ExpenseType::Fun),
-            "medical" => Ok(ExpenseType::Medical),
-            "personal" => Ok(ExpenseType::Personal),
-            other => Ok(ExpenseType::Other(other.to_string())),
-        }
-    }
-}
-
-/// The `Expense` struct; helps reading/writing data in a structured manner. It reflects the schema of the database.
+/// The [Expense] struct; helps reading/writing data in a structured manner. It reflects the schema of the database.
 #[derive(Debug, Clone)]
 pub struct Expense {
     pub date: String,
     pub description: String,
-    pub expense_type: ExpenseType,
+    pub expense_type: String,
     pub amount: f64,
 }
 
 impl Expense {
-    pub fn new(date: String, description: String, expense_type: ExpenseType, amount: f64) -> Self {
+    pub fn new(date: String, description: String, expense_type: String, amount: f64) -> Self {
         Self {
             date,
             description,
-            expense_type,
+            expense_type: capitalize(expense_type),
             amount,
         }
     }
@@ -76,7 +46,9 @@ impl Expense {
     pub fn add_expense() -> Result<(), Box<dyn std::error::Error>> {
         let date = Self::input_date()?;
         let description = Self::input("Enter description:")?;
-        let expense_type = Self::input_expense_type()?;
+        let expense_type = capitalize(Self::input(
+            "Enter expense type (Food, Travel, Fun, Medical, Personal or Other): ",
+        )?);
         let amount = Self::input_amount()?;
         let expense = Self::new(date, description, expense_type, amount);
 
@@ -86,6 +58,7 @@ impl Expense {
         Ok(())
     }
 
+    /// Takes in a [String] input, after printing a prompt
     fn input(prompt: &str) -> Result<String, Box<dyn std::error::Error>> {
         let mut input = String::new();
         print!("{}", prompt);
@@ -94,6 +67,7 @@ impl Expense {
         Ok(input.trim().to_string())
     }
 
+    /// Takes in an input of a Date format, currently defined as YYYY-MM-DD or YYYY/MM/DD
     fn input_date() -> Result<String, Box<dyn std::error::Error>> {
         loop {
             let input = Self::input(
@@ -111,18 +85,7 @@ impl Expense {
         }
     }
 
-    fn input_expense_type() -> Result<ExpenseType, Box<dyn std::error::Error>> {
-        loop {
-            let input = Self::input(
-                "Enter expense type (Food, Travel, Fun, Medical, Personal or Other): ",
-            )?;
-            match input.parse() {
-                Ok(expense_type) => return Ok(expense_type),
-                Err(_) => println!("Invalid expense type. Please try again."),
-            }
-        }
-    }
-
+    /// Takes input of type [f64]
     fn input_amount() -> Result<f64, Box<dyn std::error::Error>> {
         loop {
             let input = Self::input("Enter amount: ")?;
@@ -175,7 +138,7 @@ impl Expense {
             }
             let fields: Vec<&str> = line.split(',').collect();
             if fields.len() == 4 {
-                let expense_type: ExpenseType = fields[2].parse()?;
+                let expense_type: String = fields[2].parse()?;
                 let expense = Expense::new(
                     fields[0].to_string(),
                     fields[1].to_string(),

@@ -1,3 +1,5 @@
+//! Implements the TUI interface
+
 use clap::Parser;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
@@ -298,17 +300,4 @@ fn ui(frame: &mut Frame, expenses: &[Expense], table_state: &mut TableState) {
 
         frame.render_widget(type_barchart, chunk); // Render the type barchart
     }
-}
-
-fn capitalize(string: String) -> String {
-    // QUESTION: will this work fine for unicode also?
-    if string.is_empty() {
-        return String::new();
-    }
-
-    let mut chars = string.chars();
-    let first_char = chars.next().unwrap().to_uppercase().to_string();
-    let rest: String = chars.collect();
-
-    first_char + &rest
 }
