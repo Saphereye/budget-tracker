@@ -1,6 +1,7 @@
 # Budget Tracker ![crates.io](https://img.shields.io/crates/v/budget-tracker.svg)
 
-## Description
+![](https://raw.githubusercontent.com/Saphereye/budget-tracker/main/assets/image.png)
+
 A minimal TUI based budget tracker.
 
 Track your expenses and income by recording the date, a brief description, the type of transaction, and the amount spent or received. You can create custom expense types when adding transactions. For example, you might use:
@@ -58,6 +59,3 @@ budget-tracker --search <SEARCH_QUERY>
 Here the search query can either be a substring of the description (the search support fuzzy searching) or the expense type, the program automatically accounts for both.
 
 - To exit press 'q'
-
-## Screenshot
-![](https://raw.githubusercontent.com/Saphereye/budget-tracker/main/assets/image.png)

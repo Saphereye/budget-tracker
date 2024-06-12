@@ -1,6 +1,6 @@
 [package]
 name = "budget-tracker"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2021"
 description = "A TUI based budget tracker"
 license = "MIT"
@@ -16,5 +16,7 @@ chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["derive"] }
 crossterm = "0.27.0"
 dirs = "5.0.1"
+fern = "0.6.2"
 fuzzy-matcher = "0.3.7"
+log = "0.4.21"
 ratatui = "0.26.3"

@@ -1,6 +1,7 @@
 //! Defines all [Expense] struct related objects.
 
 use chrono::{Local, NaiveDate};
+use log::{error, trace};
 use std::io::{self, BufRead, BufReader, Write};
 use std::{env, process::Command};
 use std::{fs, path::PathBuf};
@@ -44,6 +45,7 @@ impl Expense {
     For amount no denoination is expected as of now.
     */
     pub fn add_expense() -> Result<(), Box<dyn std::error::Error>> {
+        trace!("Adding expense ...");
         let date = Self::input_date()?;
         let description = Self::input("Enter description:")?;
         let expense_type = capitalize(Self::input(
@@ -54,6 +56,7 @@ impl Expense {
 
         Self::append_to_csv("expenses.csv", &expense)?;
         println!("Added your data to the db!");
+        trace!("Added expense: {:?}", expense);
 
         Ok(())
     }
@@ -98,7 +101,9 @@ impl Expense {
 
     /// Allows editing the database by specifying an EDITOR environment variable. By default its nano.
     pub fn edit_expenses(file_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+        trace!("Editing the expenses file ...");
         let editor = env::var("EDITOR").unwrap_or_else(|_| "nano".to_string());
+        trace!("Choosing '{}' as the editor", editor);
         Command::new(editor)
             .arg(Expense::get_database_file_path(file_name)?)
             .status()?;
@@ -111,6 +116,7 @@ impl Expense {
         file_name: &str,
         expense: &Expense,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        trace!("Appending to db ... ");
         let file_path = Expense::get_database_file_path(file_name)?;
         let mut file = fs::OpenOptions::new().append(true).open(file_path)?;
         let data = format!(
@@ -125,6 +131,7 @@ impl Expense {
     /// Read the database if its present from ~/.local/share/budget-tracker/expenses.csv;
     /// if not present it returns an error.
     pub fn read_csv(file_name: &str) -> Result<Vec<Expense>, Box<dyn std::error::Error>> {
+        trace!("Reading the db ... ");
         let file_path = Expense::get_database_file_path(file_name)?;
         let file = fs::File::open(file_path)?;
 
@@ -153,9 +160,10 @@ impl Expense {
 
     /// Creates the database. Usually called when running the program for the first time.
     pub fn create_expenses_csv() -> Result<(), Box<dyn std::error::Error>> {
+        trace!("Creating the db ... ");
         let budget_tracker_dir = Expense::get_database_file_path("")?;
         if let Err(err) = fs::create_dir_all(&budget_tracker_dir) {
-            eprintln!(
+            error!(
                 "Error creating directory {}: {}",
                 budget_tracker_dir.display(),
                 err
@@ -165,7 +173,7 @@ impl Expense {
 
         let expenses_file = budget_tracker_dir.join("expenses.csv");
         if let Err(err) = fs::File::create(&expenses_file) {
-            eprintln!("Error creating file {}: {}", expenses_file.display(), err);
+            error!("Error creating file {}: {}", expenses_file.display(), err);
             return Err(err.into());
         }
         Ok(())

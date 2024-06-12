@@ -1,5 +1,6 @@
 //! Implements the TUI interface
 
+use chrono::Utc;
 use clap::Parser;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
@@ -7,14 +8,14 @@ use crossterm::{
     ExecutableCommand,
 };
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use log::{debug, info, trace, error};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::{prelude::*, widgets::*};
-use std::collections::HashMap;
-use std::io;
+use std::{collections::HashMap, path::PathBuf};
+use std::{env, io, process::Command};
 
-mod expense;
-use expense::*;
+use budget_tracker::expense::*;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -27,36 +28,72 @@ struct Args {
     #[arg(short, long)]
     edit: bool,
 
+    /// Check logs
+    #[arg(short, long)]
+    logs: bool,
+
     /// Search entries
     #[arg(short, long)]
     search: Option<String>,
 }
 
+fn get_expenses_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let home_dir = dirs::home_dir().ok_or("Unable to determine user's home directory")?;
+    Ok(home_dir.join(".local").join("share").join("budget-tracker"))
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{:?} {} {}] {}",
+                Utc::now(),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .chain(fern::log_file(get_expenses_dir()?.join("expenses.log"))?)
+        .apply()?;
+    info!("====Starting program====");
     let args = Args::parse();
 
     if args.add {
         Expense::add_expense()?;
+        trace!("Added the expense succesfully");
     }
 
     if args.edit {
         Expense::edit_expenses("expenses.csv")?;
+        trace!("Edited file succesfully");
     }
 
+    if args.logs {
+        trace!("Opening the log file ...");
+        Command::new("tail")
+            .arg("-f")
+            .arg(get_expenses_dir()?.join("expenses.log").to_str().unwrap())
+            .status()?;
+        trace!("Closed log file view succesfully");
+        invoke_gracefull_exit()?;
+    }
+
+    trace!("Starting the TUI ...");
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     stdout.execute(EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    trace!("Reading expenses.csv ...");
     let mut expenses = match Expense::read_csv("expenses.csv") {
         Ok(expenses) => expenses,
         Err(err) => {
-            eprintln!("Error reading CSV: {}", err);
+            error!("Error reading CSV, trying to create it: {}", err);
             match Expense::create_expenses_csv() {
                 Ok(_) => Vec::new(),
                 Err(err) => {
-                    eprintln!("Error creating CSV: {}", err);
+                    error!("Error creating CSV: {}", err);
                     return Err(err);
                 }
             }
@@ -64,6 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if let Some(query) = &args.search {
+        trace!("Found user query: {}", query);
         let matcher = SkimMatcherV2::default();
         expenses = expenses
             .iter()
@@ -87,10 +125,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         terminal.draw(|f| ui(f, &expenses, &mut table_state))?;
         should_quit = handle_events(&mut table_state, table_size)?;
     }
+    
+    invoke_gracefull_exit()?;
+    Ok(())
+}
 
+fn invoke_gracefull_exit() -> Result<(), Box<dyn std::error::Error>>{
     disable_raw_mode()?;
     let mut stdout = io::stdout();
     stdout.execute(LeaveAlternateScreen)?;
+    info!("====Exiting the program====");
+    std::process::exit(0);
+
     Ok(())
 }
 
@@ -102,6 +148,7 @@ fn handle_events(table_state: &mut TableState, table_size: usize) -> io::Result<
             ..
         }) = event::read()?
         {
+            debug!("Read in key: {:?}", code);
             match code {
                 KeyCode::Char('q') => return Ok(true),
                 KeyCode::Down | KeyCode::Char('s') => {
