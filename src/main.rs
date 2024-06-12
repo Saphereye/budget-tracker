@@ -13,7 +13,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::{prelude::*, widgets::*};
 use std::{collections::HashMap, path::PathBuf};
-use std::{env, io, process::Command};
+use std::{io, process::Command};
 
 use budget_tracker::expense::*;
 
@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .arg(get_expenses_dir()?.join("expenses.log").to_str().unwrap())
             .status()?;
         trace!("Closed log file view succesfully");
-        invoke_gracefull_exit()?;
+        return invoke_gracefull_exit();
     }
 
     trace!("Starting the TUI ...");
@@ -126,8 +126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         should_quit = handle_events(&mut table_state, table_size)?;
     }
     
-    invoke_gracefull_exit()?;
-    Ok(())
+    invoke_gracefull_exit()
 }
 
 fn invoke_gracefull_exit() -> Result<(), Box<dyn std::error::Error>>{
@@ -135,8 +134,7 @@ fn invoke_gracefull_exit() -> Result<(), Box<dyn std::error::Error>>{
     let mut stdout = io::stdout();
     stdout.execute(LeaveAlternateScreen)?;
     info!("====Exiting the program====");
-    std::process::exit(0);
-
+    
     Ok(())
 }
 
